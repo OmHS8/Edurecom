@@ -1,6 +1,10 @@
 from django.contrib import admin
 from .models import *
 
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'bio', 'profile_picture')
+
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
     list_display = ('name', 'description')
@@ -39,3 +43,4 @@ class UserRecommendationAdmin(admin.ModelAdmin):
 
 admin.site.register(Keyword)
 admin.site.register(ResourceType)
+admin.site.register(UserStatistics)

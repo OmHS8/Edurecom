@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fy_proj/providers/user_statistics_provider.dart';
 import 'package:fy_proj/screens/quiz_screen.dart';
 import 'package:provider/provider.dart';
 import 'providers/quiz_provider.dart';
@@ -14,12 +15,13 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  @override
+  @override 
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => QuizProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => UserStatisticsProvider())
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, child) {
@@ -40,7 +42,7 @@ class MyApp extends StatelessWidget {
               '/register': (context) => const RegisterScreen(),
               '/home': (context) => const HomeScreen(),
               '/profile': (context) => const ProfileScreen(),
-              "/quiz" : (context) => const QuizScreen()
+              "/quiz" : (context) => const QuizScreen(),
             },
           );
         },

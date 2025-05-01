@@ -45,7 +45,10 @@ dependencies:
   path: ^1.9.0
   flutter_secure_storage: ^9.2.4
   jwt_decoder: ^2.0.1
-  intl: ^0.20.2
+  intl: ^0.18.1
+  flutter_rating_bar: ^4.0.1
+  image_picker: ^1.1.2
+  syncfusion_flutter_charts: ^22.2.8
 
 dev_dependencies:
   flutter_test:

@@ -1,6 +1,7 @@
 
 // lib/screens/splash_screen.dart
 import 'package:flutter/material.dart';
+import 'package:fy_proj/widgets/loading_widget.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -15,7 +16,7 @@ class SplashScreen extends StatelessWidget {
             // App logo or icon
             FlutterLogo(size: 100),
             SizedBox(height: 24),
-            CircularProgressIndicator(),
+            SimpleLoadingWidget(),
             SizedBox(height: 24),
             Text(
               'Loading...',

@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from .models import *
 from .serializers import *
-from .recommendation import RecommendationEngine
+from .rec import RecommendationEngine
 
 class UserRegistrationView(APIView):
     permission_classes = [AllowAny]
@@ -30,7 +30,6 @@ class SubjectViewSet(viewsets.ReadOnlyModelViewSet):
 
 class QuizViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = QuizSerializer
-    
     def get_queryset(self):
         queryset = Quiz.objects.all()
         subject_id = self.request.query_params.get('subject_id', None)
@@ -44,6 +43,50 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
     
     def get_object(self):
         return self.request.user
+    
+class UpdateProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        """Update user's username and email."""
+        user = request.user
+
+        # Validate and update the fields
+        username = request.data.get("username")
+        email = request.data.get("email")
+
+        if username:
+            user.username = username
+        if email:
+            user.email = email
+
+        # Save the updated user
+        user.save()
+
+        # Return updated user data
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UploadProfilePhotoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Upload user's profile photo."""
+        user_profile = UserProfile.objects.get(user=request.user)
+        
+        # Check if the file is present in the request
+        if 'photo' not in request.FILES:
+            return Response({"error": "No photo uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        photo = request.FILES['photo']
+        
+        # Save the uploaded photo
+        user_profile.profile_picture = photo
+        user_profile.save()
+
+        # Return updated user profile data
+        serializer = UserProfileSerializer(user_profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -238,3 +281,154 @@ def mark_recommendation_viewed(request, recommendation_id):
     recommendation.save()
     
     return Response({'status': 'success'})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def rate_resource(request):
+    resource_id = request.query_params.get("resource_id", None)
+    try:
+        resource = Resource.objects.get(pk=resource_id)
+    except Resource.DoesNotExist:
+        return Response({'detail': 'Resource not found'}, status=404)
+
+    rating_value = float(request.data.get('rating', 0))
+    if rating_value < 1 or rating_value > 5:
+        return Response({'detail': 'Rating must be between 1 and 5'}, status=400)
+
+    rating_obj, created = ResourceRating.objects.update_or_create(
+        user=request.user,
+        resource=resource,
+        defaults={'rating': rating_value}
+    )
+
+    resource.refresh_from_db()
+
+    print(resource.title)
+
+    print(resource.rating)
+
+    # The signal to update average is handled in the model save
+
+    return Response({
+        'detail': 'Rating submitted successfully',
+        'average_rating': resource.rating
+    })
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_attempted_quizzes(request):
+    user = request.user
+    quizzes_attempted = UserQuizAttempt.objects.filter(user=user).count()
+    print(quizzes_attempted)
+    return Response({
+        "message" : "Attempts fetched successfully",
+        "quizzes_attempted" : quizzes_attempted
+    })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_statistics(request):
+    """Get user statistics"""
+    try:
+        stats = UserStatistics.objects.get(user=request.user)
+    except UserStatistics.DoesNotExist:
+        stats = UserStatistics.objects.create(user=request.user)
+    
+    # Update statistics before returning
+    stats.update_statistics()
+    
+    serializer = UserStatisticsSerializer(stats)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_quiz_timing_data(request):
+    """Get quiz timing data for charts"""
+    attempts = UserQuizAttempt.objects.filter(
+        user=request.user,
+        completed=True
+    ).exclude(completed_at=None).order_by('started_at')
+    
+    data = []
+    for attempt in attempts:
+        # Calculate duration in minutes
+        if attempt.completed_at and attempt.started_at:
+            duration = (attempt.completed_at - attempt.started_at).total_seconds() / 60
+            
+            # Count questions in this quiz
+            question_count = Question.objects.filter(quiz=attempt.quiz).count()
+            
+            # Count correct answers
+            correct_answers = UserAnswer.objects.filter(
+                attempt=attempt,
+                is_correct=True
+            ).count()
+            
+            data.append({
+                'quiz_id': attempt.quiz.id,
+                'quiz_title': attempt.quiz.__str__(),
+                'date': attempt.completed_at.strftime('%Y-%m-%d'),
+                'duration_minutes': round(duration, 2),
+                'question_count': question_count,
+                'correct_answers': correct_answers,
+                'score': attempt.score
+            })
+    
+    return Response(data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_subject_performance(request):
+    """Get subject-wise performance data for charts"""
+    attempts = UserQuizAttempt.objects.filter(
+        user=request.user,
+        completed=True
+    )
+    
+    subject_data = {}
+    
+    for attempt in attempts:
+        subject_id = attempt.quiz.subject_id
+        subject_name = attempt.quiz.subject.name
+        
+        if subject_id not in subject_data:
+            subject_data[subject_id] = {
+                'subject_name': subject_name,
+                'attempts': 0,
+                'total_score': 0,
+                'average_score': 0
+            }
+        0
+        subject_data[subject_id]['attempts'] += 1
+        subject_data[subject_id]['total_score'] += attempt.score
+        subject_data[subject_id]['average_score'] = (
+            float("{:.2f}".format(subject_data[subject_id]['total_score'] / subject_data[subject_id]['attempts']))
+        )
+    
+    return Response(list(subject_data.values()))
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_stats_overview(request):
+    user = request.user
+    userStatistics = UserStatistics.objects.get(user=user)
+    completion_rate = round((userStatistics.quizzes_attempted / Quiz.objects.count()) * 100, 2)
+    accuracy = round(userStatistics.accuracy_rate, 2)
+    return Response({
+        "accuracy" : accuracy,
+        "quizzes_taken" : userStatistics.quizzes_attempted,
+        "completion_rate": completion_rate
+    })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_profile_stats(request):
+    user = request.user
+    userStatistics = UserStatistics.objects.get(user=user)
+    weakestSubject = Subject.objects.get(id=userStatistics.weakest_subject_id)
+    return Response({
+        "date_joined" : userStatistics.date_joined,
+        "quizzes_attempted" : userStatistics.quizzes_attempted,
+        "avg_score" : userStatistics.average_score,
+        "weakest_subject" : weakestSubject
+    })

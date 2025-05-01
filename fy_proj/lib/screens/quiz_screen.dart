@@ -1,15 +1,16 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:fy_proj/services/quiz_api.dart';
-import 'package:fy_proj/widgets/loading_widget.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/quiz_provider.dart';
+import '../services/quiz_api.dart';
 import '../services/shared_prefs_service.dart';
+import '../widgets/loading_widget.dart';
 import 'quiz_navigation.dart';
 import 'results_screen.dart';
-import 'dart:async';
 
 class QuizScreen extends StatefulWidget {
-  const QuizScreen({super.key});
+  const QuizScreen({Key? key}) : super(key: key);
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -17,12 +18,9 @@ class QuizScreen extends StatefulWidget {
 
 class _QuizScreenState extends State<QuizScreen> {
   int currentQuestionIndex = 0;
-  bool isLoading = true;
-  bool dialogShown = false;
-  
-  // Timer variables
+  bool isLoading = true, dialogShown = false;
   bool isTimerEnabled = false;
-  int timerDurationMinutes = 30; // Default timer duration
+  int timerDurationMinutes = 30;
   Timer? _timer;
   int _secondsRemaining = 0;
   DateTime? _quizStartTime;
@@ -36,7 +34,6 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Show dialog after the first build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!isLoading && !dialogShown && mounted) {
         _showTimerDialog();
@@ -51,356 +48,317 @@ class _QuizScreenState extends State<QuizScreen> {
     super.dispose();
   }
 
-  // Load quiz data and subject ID
   Future<void> _loadQuizData() async {
-    setState(() {
-      isLoading = true;
-    });
-    
-    final quizProvider = Provider.of<QuizProvider>(context, listen: false);
-    final quizId = quizProvider.quizId;
-    
-    if (quizId != null) {
-      await quizProvider.loadQuizData(quizId);
-    }
-    
+    setState(() => isLoading = true);
+    final qp = Provider.of<QuizProvider>(context, listen: false);
+    if (qp.quizId != null) await qp.loadQuizData(qp.quizId!);
     setState(() {
       isLoading = false;
-      currentQuestionIndex = 0; // Reset to first question when loading new quiz
+      currentQuestionIndex = 0;
     });
   }
 
-  // Show dialog to ask if user wants to time the quiz
   void _showTimerDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Quiz Timer'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Would you like to time this quiz?'),
-                  SwitchListTile(
-                    title: const Text('Enable Timer'),
-                    value: isTimerEnabled,
-                    onChanged: (value) {
-                      setState(() {
-                        isTimerEnabled = value;
-                      });
-                    },
-                  ),
-                  if (isTimerEnabled)
-                    Row(
-                      children: [
-                        const Text('Duration (minutes): '),
-                        Expanded(
-                          child: TextField(
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              hintText: '30',
-                            ),
-                            onChanged: (value) {
-                              setState(() {
-                                timerDurationMinutes = int.tryParse(value) ?? 30;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => AlertDialog(
+          title: Text('Quiz Timer', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Would you like to time this quiz?', style: GoogleFonts.montserrat()),
+              SwitchListTile(
+                title: Text('Enable Timer', style: GoogleFonts.montserrat()),
+                value: isTimerEnabled,
+                onChanged: (v) => setSt(() => isTimerEnabled = v),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _startQuiz();
-                  },
-                  child: const Text('Start Quiz'),
+              if (isTimerEnabled)
+                Row(
+                  children: [
+                    Text('Duration (min):', style: GoogleFonts.montserrat()),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          hintText: '30',
+                          contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onChanged: (v) => setSt(() => timerDurationMinutes = int.tryParse(v) ?? 30),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            );
-          },
-        );
-      },
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _startQuiz();
+              },
+              child: Text('Start Quiz', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  // Start the quiz with or without timer
   void _startQuiz() {
-    setState(() {
-      if (isTimerEnabled) {
-        _quizStartTime = DateTime.now();
-        _secondsRemaining = timerDurationMinutes * 60;
-        _startTimer();
-        
-        // Save timer preferences
-        SharedPrefsService().setTimerPreference(isTimerEnabled);
-        SharedPrefsService().setTimerDuration(timerDurationMinutes);
-        SharedPrefsService().setQuizStartTime(_quizStartTime!);
+    if (isTimerEnabled) {
+      _quizStartTime = DateTime.now();
+      _secondsRemaining = timerDurationMinutes * 60;
+      _startTimer();
+      SharedPrefsService().setTimerPreference(isTimerEnabled);
+      SharedPrefsService().setTimerDuration(timerDurationMinutes);
+      SharedPrefsService().setQuizStartTime(_quizStartTime!);
+    }
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_secondsRemaining > 0) {
+        setState(() => _secondsRemaining--);
+      } else {
+        _timer?.cancel();
+        _autoSubmitQuiz();
       }
     });
   }
 
-  // Start the timer
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        if (_secondsRemaining > 0) {
-          _secondsRemaining--;
-        } else {
-          _timer?.cancel();
-          _autoSubmitQuiz();
-        }
-      });
-    });
-  }
-
-  // Auto-submit quiz when time is up
   Future<void> _autoSubmitQuiz() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Time\'s up! Submitting quiz...')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Time\'s up! Submitting...')));
     await _submitQuiz();
   }
 
-  // Format time remaining for display
-  String get _formattedTimeRemaining {
-    int minutes = _secondsRemaining ~/ 60;
-    int seconds = _secondsRemaining % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  String get _formattedTime {
+    final m = _secondsRemaining ~/ 60;
+    final s = (_secondsRemaining % 60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 
-  // Submit quiz function
   Future<void> _submitQuiz() async {
     try {
-      final quizProvider = Provider.of<QuizProvider>(context, listen: false);
-      final quizId = quizProvider.quizId;
+      final qp = Provider.of<QuizProvider>(context, listen: false);
+      final quizId = qp.quizId;
+      if (quizId == null) throw 'Quiz ID not found';
 
-      if (quizId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Quiz ID not found!")),
-        );
-        return;
-      }
-
-      final answers = quizProvider.getSubmissionFormat();
-
+      final answers = qp.getSubmissionFormat();
       if (answers.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please answer at least one question!')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Answer at least one question')));
         return;
       }
 
-      // Calculate time taken
       Map<String, dynamic> timerData = {};
       if (isTimerEnabled && _quizStartTime != null) {
-        final endTime = DateTime.now();
-        final durationSeconds = endTime.difference(_quizStartTime!).inSeconds;
+        final taken = DateTime.now().difference(_quizStartTime!).inSeconds;
         timerData = {
           'timer_enabled': true,
-          'duration_seconds': durationSeconds,
+          'duration_seconds': taken,
           'max_duration_minutes': timerDurationMinutes
         };
       }
 
       final result = await QuizApiService().submitQuizWithTimer(quizId, answers, timerData);
-      
-      // Cancel timer if active
       _timer?.cancel();
-      
-      // Reset the quiz data after successful submission
-      await quizProvider.resetQuiz();
+      await qp.resetQuiz();
 
-      if (context.mounted) {
+      if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (BuildContext context) => ResultsScreen(resultData: result),
-          ),
+          MaterialPageRoute(builder: (_) => ResultsScreen(resultData: result)),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error submitting quiz: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error submitting: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    var quizProvider = Provider.of<QuizProvider>(context);
-    var quizData = quizProvider.quizData;
+    final qp = Provider.of<QuizProvider>(context);
+    final quizData = qp.quizData;
 
-    // Show loading indicator if loading or no quiz data is available
     if (isLoading || quizData.isEmpty) {
-      return const Center(child: LoadingWidget());
+      return const Center(child: SimpleLoadingWidget());
     }
 
-    // Get the current question data
-    var currentQuestionData = quizData[currentQuestionIndex];
+    final q = quizData[currentQuestionIndex];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(quizProvider.quizTitle ?? 'Quiz'),
+        title: Text(qp.quizTitle ?? 'Quiz', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600)),
         centerTitle: true,
-        backgroundColor: const Color.fromARGB(225, 138, 249, 255),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          // Timer display
           if (isTimerEnabled)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
                 child: Text(
-                  _formattedTimeRemaining,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+                  _formattedTime,
+                  style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
         ],
       ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                // Navigation bar - passing the full questions list
-                QuizNavigationBar(
-                  currentIndex: currentQuestionIndex,
-                  questions: quizData,
-                  onQuestionTap: (index) {
-                    setState(() {
-                      currentQuestionIndex = index;
-                    });
-                  },
-                  answeredQuestions: quizProvider.selectedAnswers,
-                ),
-                // Display current question
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    "Q${currentQuestionIndex + 1}) ${currentQuestionData.text}",
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                // Display options using ListView.builder
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: currentQuestionData.options.length,
-                    itemBuilder: (context, index) {
-                      final option = currentQuestionData.options[index];
-                      bool isSelected = quizProvider.getSelectedAnswer(currentQuestionData.id) == option.id;
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Column(
+            children: [
+              // Question navigation
+              QuizNavigationBar(
+                currentIndex: currentQuestionIndex,
+                questions: quizData,
+                onQuestionTap: (i) => setState(() => currentQuestionIndex = i),
+                answeredQuestions: qp.selectedAnswers,
+              ),
 
-                      return GestureDetector(
-                        onTap: () {
-                          quizProvider.setSelectedAnswer(currentQuestionData.id, option.id);
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color.fromARGB(225, 72, 208, 208).withOpacity(0.2)
-                                : Colors.transparent,
-                            border: Border.all(
-                              color: isSelected ? const Color.fromARGB(225, 72, 208, 208) : Colors.grey,
-                              width: isSelected ? 2 : 1,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
+              const SizedBox(height: 24),
+
+              // Question text
+              Text(
+                'Q${currentQuestionIndex + 1}) ${q.text}',
+                style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Options list
+              Expanded(
+                child: ListView.separated(
+                  itemCount: q.options.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, idx) {
+                    final opt = q.options[idx];
+                    final selected = qp.getSelectedAnswer(q.id) == opt.id;
+                    return GestureDetector(
+                      onTap: () => qp.setSelectedAnswer(q.id, opt.id),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: selected ? Colors.black.withOpacity(0.1) : Colors.white,
+                          border: Border.all(
+                            color: selected ? Colors.black : Colors.grey.shade300,
+                            width: selected ? 2 : 1,
                           ),
-                          child: RadioListTile<int>(
-                            title: Text(option.text),
-                            value: option.id,
-                            groupValue: quizProvider.getSelectedAnswer(currentQuestionData.id),
-                            activeColor: const Color.fromARGB(225, 72, 208, 208),
-                            onChanged: (value) {
-                              if (value != null) {
-                                quizProvider.setSelectedAnswer(currentQuestionData.id, value);
-                              }
-                            },
-                          ),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      );
-                    },
-                  ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              selected
+                                  ? Icons.radio_button_checked_rounded
+                                  : Icons.radio_button_off_rounded,
+                              color: selected ? Colors.black : Colors.grey,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                opt.text,
+                                style: GoogleFonts.montserrat(fontSize: 14),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                // Navigation buttons (Previous and Next)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ElevatedButton(
-                      onPressed: currentQuestionIndex > 0
-                          ? () {
-                              setState(() {
-                                currentQuestionIndex--;
-                              });
-                            }
-                          : null, // Disable if on the first question
-                      child: const Text('Previous', style: TextStyle(color: Colors.black)),
-                    ),
-                    ElevatedButton(
-                      onPressed: currentQuestionIndex < quizData.length - 1
-                          ? () {
-                              setState(() {
-                                currentQuestionIndex++;
-                              });
-                            }
-                          : null, // Disable if on the last question
-                      child: const Text('Next', style: TextStyle(color: Colors.black)),
-                    ),
-                  ],
-                ),
-                // Submit button (confirmation dialog for submitting quiz)
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      bool? confirmSubmit = await _showSubmitConfirmationDialog(context);
-                      if (confirmSubmit == true) {
-                        await _submitQuiz();
-                      }
-                    },
-                    child: const Text('Submit', style: TextStyle(color: Colors.black)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+              ),
 
-  // Confirmation dialog for quiz submission
-  Future<bool?> _showSubmitConfirmationDialog(BuildContext context) {
-    return showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Submit Quiz'),
-          content: const Text('Are you sure you want to submit the quiz?'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Submit'),
-            ),
-          ],
-        );
-      },
+              const SizedBox(height: 16),
+
+              // Prev / Next buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ElevatedButton(
+                    onPressed: currentQuestionIndex > 0
+                        ? () => setState(() => currentQuestionIndex--)
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text('Previous', style: GoogleFonts.montserrat()),
+                  ),
+                  ElevatedButton(
+                    onPressed: currentQuestionIndex < quizData.length - 1
+                        ? () => setState(() => currentQuestionIndex++)
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text('Next', style: GoogleFonts.montserrat()),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Submit
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text('Submit Quiz', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600)),
+                        content: Text('Are you sure you want to submit?', style: GoogleFonts.montserrat()),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text('Cancel', style: GoogleFonts.montserrat()),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: Text('Submit', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) await _submitQuiz();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text('Submit Quiz', style: GoogleFonts.montserrat(fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,12 +1,13 @@
 // lib/services/api_service.dart
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 
 class AuthApiService {
   // Base URL for your Django API
-  final String baseUrl = 'http://192.168.0.102:8000';
+  final String baseUrl = 'http://localhost:8000';
   
   // Secure storage for tokens
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -230,6 +231,68 @@ class AuthApiService {
     
     // Has valid access token
     return token != null && !JwtDecoder.isExpired(token);
+  }
+
+  // Get profile statistics
+  Future<Map<String, dynamic>> getProfileStats() async {
+    final headers = await getHeaders();
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/profilestats'),
+      headers: headers,
+    );
+    
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else if (response.statusCode == 401) {
+      throw Exception('Authentication required');
+    } else {
+      throw Exception('Failed to load profile stats: ${response.body}');
+    }
+  }
+  
+  // Update profile
+  Future<Map<String, dynamic>> updateProfile({
+    required String username,
+    required String email,
+  }) async {
+    final headers = await getHeaders();
+    final response = await http.put(
+      Uri.parse('$baseUrl/api/updateprofile/'),
+      headers: headers,
+      body: json.encode({
+        'username': username,
+        'email': email,
+      }),
+    );
+    
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to update profile: ${response.body}');
+    }
+  }
+  
+  // Upload profile photo
+  Future<Map<String, dynamic>> uploadProfilePhoto(File imageFile) async {
+    final uri = Uri.parse('$baseUrl/api/uploadphoto/');
+    String? token = await _storage.read(key: ACCESS_TOKEN_KEY);
+    
+    var request = http.MultipartRequest('POST', uri);
+    request.headers['Authorization'] = 'Bearer $token';
+    
+    request.files.add(await http.MultipartFile.fromPath(
+      'photo',
+      imageFile.path,
+    ));
+    
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to upload photo: ${response.body}');
+    }
   }
   
   // Helper to handle response

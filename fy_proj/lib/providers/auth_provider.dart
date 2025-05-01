@@ -1,6 +1,6 @@
-// lib/providers/auth_provider.dart
 import 'package:flutter/material.dart';
 import '../services/auth_api_service.dart';
+import 'dart:io';
 
 class AuthProvider extends ChangeNotifier {
   final AuthApiService _apiService = AuthApiService();
@@ -8,12 +8,14 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoggedIn = false;
   bool _isLoading = false;
   Map<String, dynamic>? _user;
+  Map<String, dynamic>? _profileStats;
   String? _error;
   
   // Getters
   bool get isLoggedIn => _isLoggedIn;
   bool get isLoading => _isLoading;
   Map<String, dynamic>? get user => _user;
+  Map<String, dynamic>? get profileStats => _profileStats;
   String? get error => _error;
   
   // Constructor - check if user is already logged in on startup
@@ -103,6 +105,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _apiService.logout();
       _user = null;
+      _profileStats = null;
       _isLoggedIn = false;
     } catch (e) {
       _error = e.toString();
@@ -134,6 +137,79 @@ class AuthProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+  
+  // Load profile statistics
+  Future<void> getProfileStats() async {
+    _isLoading = true;
+    notifyListeners();
+    
+    try {
+      final data = await _apiService.getProfileStats();
+      _profileStats = data;
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+  
+  // Update user profile
+  Future<bool> updateProfile({
+    required String username,
+    required String email,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    
+    try {
+      final data = await _apiService.updateProfile(
+        username: username,
+        email: email,
+      );
+      
+      // Update the current user data
+      _user = data;
+          
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+  
+  // Upload profile photo
+  Future<bool> uploadProfilePhoto(File imageFile) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    
+    try {
+      final data = await _apiService.uploadProfilePhoto(imageFile);
+      
+      // Update the photo URL in the user data
+      if (data.containsKey('photo_url')) {
+        if (_user != null) {
+          _user!['photo_url'] = data['photo_url'];
+        }
+      }
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
     }
   }
   

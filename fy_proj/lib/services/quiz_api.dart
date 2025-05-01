@@ -3,7 +3,6 @@ import 'package:fy_proj/services/auth_api_service.dart';
 import 'package:http/http.dart' as http;
 import '../resources/models.dart';
 
-
 class QuizResponse {
   final int quizId;
   final String quizTitle;
@@ -29,10 +28,8 @@ class QuizResponse {
   }
 }
 
-
 class QuizApiService {
-
-  final String baseUrl = 'http://192.168.0.102:8000';
+  final String baseUrl = 'http://localhost:8000';
 
   QuizApiService._privateConstructor();
 
@@ -41,16 +38,62 @@ class QuizApiService {
   factory QuizApiService() {
     return _instance;
   }
-  
+
+  Future<Map<int, String>> fetchSubjects() async {
+    final url = '$baseUrl/api/get-subjects/';
+    final headers = await AuthApiService().getHeaders();
+    final response = await http.get(Uri.parse(url), headers: headers);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      Map<int, String> subjects = {};
+      for (var d in data) {
+        subjects.addAll({d['id']: d['name']});
+      }
+      return subjects;
+    } else {
+      throw Exception('Failed to fetch subjects: ${response.statusCode}');
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchStatsOverView() async {
+    final url = '$baseUrl/api/user/stats-overview/';
+    final headers = await AuthApiService().getHeaders();
+    final response = await http.get(Uri.parse(url), headers: headers);
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final stats = {
+        "accuracy" : data["accuracy"].toString(),
+        "completion_rate" : data["completion_rate"].toString(),
+        "quizzes_taken" : data["quizzes_taken"].toString(),
+      };
+      return stats;
+    } else {
+       throw Exception('Failed to load statistics overview: ${response.statusCode}');
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchProfileStats() async {
+    final url = '$baseUrl/api/profile-stats/';
+    final headers = await AuthApiService().getHeaders();
+    final response = await http.get(Uri.parse(url), headers: headers);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      
+
+      return data;
+    } else {
+      throw Exception('Failed to load profile statistics: ${response.statusCode}');
+    }
+  }
+
   // New method to fetch quizzes by subject ID
   Future<List<Quiz>> fetchQuizzesBySubject(int subjectId) async {
     final url = "$baseUrl/api/get-quizzes/?subject_id=$subjectId";
     final headers = await AuthApiService().getHeaders();
-    final response = await http.get(
-      Uri.parse(url),
-      headers: headers
-    );    
-    
+    final response = await http.get(Uri.parse(url), headers: headers);
+
     if (response.statusCode == 200) {
       final jsData = json.decode(response.body);
       List<Quiz> quizzes = (jsData['quizzes'] as List)
@@ -65,11 +108,8 @@ class QuizApiService {
   Future<QuizResponse> fetchQuizQuestionsData(int quizId) async {
     final url = "$baseUrl/api/get-questions/?quiz_id=$quizId";
     final headers = await AuthApiService().getHeaders();
-    final response = await http.get(
-      Uri.parse(url),
-      headers: headers
-    );    
-    
+    final response = await http.get(Uri.parse(url), headers: headers);
+
     if (response.statusCode == 200) {
       final jsData = json.decode(response.body);
       return QuizResponse.fromJson(jsData);
@@ -78,10 +118,11 @@ class QuizApiService {
     }
   }
 
-  Future<Map<String, dynamic>> submitQuiz(int quizId, List<Map<String, dynamic>> answers) async {
+  Future<Map<String, dynamic>> submitQuiz(
+      int quizId, List<Map<String, dynamic>> answers) async {
     final url = "$baseUrl/api/submit-quiz/";
     final headers = await AuthApiService().getHeaders();
-    
+
     final response = await http.post(
       Uri.parse(url),
       headers: {
@@ -102,13 +143,12 @@ class QuizApiService {
   }
 
   Future<Map<String, dynamic>> submitQuizWithTimer(
-    int quizId, 
-    List<Map<String, dynamic>> answers,
-    Map<String, dynamic> timerData
-  ) async {
+      int quizId,
+      List<Map<String, dynamic>> answers,
+      Map<String, dynamic> timerData) async {
     final url = "$baseUrl/api/submit-quiz/";
     final headers = await AuthApiService().getHeaders();
-    
+
     // Create the request body
     Map<String, dynamic> requestBody = {
       'quiz_id': quizId,
@@ -133,6 +173,35 @@ class QuizApiService {
       return json.decode(response.body);
     } else {
       throw Exception("Failed to submit quiz: ${response.statusCode}");
+    }
+  }
+
+  Future<List<Recommendation>> fetchUserRecommendations() async {
+    final headers = await AuthApiService().getHeaders();
+    final response = await http
+        .get(Uri.parse('$baseUrl/api/get-recommendations/'), headers: headers);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((item) => Recommendation.fromJson(item)).toList();
+    } else {
+      throw Exception('Failed to load recommendations');
+    }
+  }
+
+  Future<double?> submitResourceRating(int resourceId, double rating) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/rate-resource/?resource_id=$resourceId'),
+      headers: await AuthApiService().getHeaders(),
+      body: json.encode({'rating': rating.toString()}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return (data['average_rating'] as num).toDouble();
+    } else {
+      print('Rating failed: ${response.body}');
+      return null;
     }
   }
 }

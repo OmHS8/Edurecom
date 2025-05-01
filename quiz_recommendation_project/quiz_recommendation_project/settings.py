@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
     'quiz_app',
+    'django_extensions'
 ]
 
 MIDDLEWARE = [

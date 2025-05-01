@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -31,12 +32,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Chatbot"),
-        backgroundColor: Colors.blueAccent,
-      ),
-      body: Column(
+    return Column(
         children: [
           Expanded(
             child: ListView.builder(
@@ -50,12 +46,23 @@ class _ChatScreenState extends State<ChatScreen> {
                     margin: const EdgeInsets.symmetric(vertical: 5),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isUser ? Colors.blueAccent : Colors.grey[300],
+                      color: isUser ? Colors.black : Colors.grey[200],
                       borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 5,
+                          spreadRadius: 1,
+                          offset: const Offset(1, 2),
+                        ),
+                      ],
                     ),
                     child: Text(
                       messages[index]["text"]!,
-                      style: TextStyle(color: isUser ? Colors.white : Colors.black),
+                      style: GoogleFonts.lato(
+                        fontSize: 15,
+                        color: isUser ? Colors.white : Colors.black,
+                      ),
                     ),
                   ),
                 );
@@ -64,7 +71,6 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           _buildInputBar(),
         ],
-      ),
     );
   }
 
@@ -79,8 +85,14 @@ class _ChatScreenState extends State<ChatScreen> {
               controller: _controller,
               decoration: InputDecoration(
                 hintText: "Type a message...",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                hintStyle: GoogleFonts.lato(fontSize: 14, color: Colors.grey[600]),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: Colors.grey[200],
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
               onSubmitted: (value) => sendMessage(),
             ),
@@ -89,7 +101,7 @@ class _ChatScreenState extends State<ChatScreen> {
           FloatingActionButton(
             onPressed: sendMessage,
             child: const Icon(Icons.send, color: Colors.white),
-            backgroundColor: Colors.blueAccent,
+            backgroundColor: Colors.black,
           ),
         ],
       ),

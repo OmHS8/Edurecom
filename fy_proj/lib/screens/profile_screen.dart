@@ -1,157 +1,196 @@
 import 'package:flutter/material.dart';
-import 'package:fy_proj/providers/auth_provider.dart';
-import 'package:fy_proj/services/shared_prefs_service.dart';
-import 'package:provider/provider.dart'; // Import your service for fetching data
+import 'package:fy_proj/screens/edit_profile_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
-class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
-
-  @override
-  _ProfileScreenState createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends State<ProfileScreen> {
-  // Sample user data, you can replace this with actual fetched data from your service or settings
-  String userName = "John Doe";
-  String email = "john.doe@example.com";
-  String profilePictureUrl = "https://www.w3schools.com/w3images/avatar2.png"; // Sample image URL
-  String bio = "";
-
-  final SharedPrefsService sharedPrefsService = SharedPrefsService(); // Service to fetch user details
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchUserData(); // Fetch user data on screen load
-  }
-
-  // Fetch user details from SharedPrefs or any other service you have
-  
-  void _fetchUserData() async {
-    AuthProvider _authProvider = AuthProvider();
-    await _authProvider.getUserProfile();
-    print("Authorized user: ${_authProvider.user}");
-    setState(() {
-      userName = _authProvider.user!['username'];
-      email = _authProvider.user!['email'];
-      bio = _authProvider.user?['bio'] == null ? '' : '';
-    });
-  }
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // final height = MediaQuery.of(context).size.height;
     return Scaffold(
-      body:  Consumer<AuthProvider>(
-        builder: (context, authProvider, child) {
-          if (authProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Consumer<AuthProvider>(
+          builder: (context, authProvider, child) {
+            final user = authProvider.user;
 
-          if (authProvider.user == null) {
-            return const Center(
-              child: Text('User information not available.'),
-            );
-          }
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Profile card (horizontal layout)
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 40,
+                                backgroundColor: Colors.black,
+                                child: Text(
+                                  user?['username']?[0].toUpperCase() ?? "?",
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      user?['username'] ?? "Unknown",
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      user?['email'] ?? "No email available",
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 14,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
 
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 30.0),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // Profile picture and basic info
-                    _buildProfileCard(),
-                    const SizedBox(height: 30),
-                    _buildDetailsCard(),
-                  ],
+                        const SizedBox(height: 30),
+
+                        // Profile Stats (cards layout)
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: 1.8,
+                          children: [
+                            _buildStatCard(Icons.calendar_today_rounded, 'Joined', '03/03/2025'),
+                            _buildStatCard(Icons.assignment_turned_in_rounded, 'Attempted', '2'),
+                            _buildStatCard(Icons.bar_chart_rounded, 'Avg Score', '60%'),
+                            _buildStatCard(Icons.warning_amber_rounded, 'Weakest', 'DBMS'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        }
-      )
+
+                // Edit profile button
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.edit_rounded, size: 20),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => EditProfileScreen(user: user)),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      label: Text(
+                        'Edit Profile',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
-  // Profile section with profile picture and username
-  Widget _buildProfileCard() {
-    return Card(
-      elevation: 5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      color: const Color.fromARGB(255, 255, 255, 255), // White color for the card
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 50,
-              backgroundImage: NetworkImage(profilePictureUrl),
+  Widget _buildStatCard(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(width: 20),
-            Column(
+            child: Icon(icon, color: Colors.black, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  userName,
-                  style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black),
+                  value,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
                 Text(
-                  email,
-                  style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  label,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
-
-  // Card displaying additional user information (phone, address, etc.)
-  Widget _buildDetailsCard() {
-    return Card(
-      elevation: 5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      color: const Color.fromARGB(255, 255, 255, 255), // White color for the card
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Additional Details",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-            ),
-            const SizedBox(height: 10),
-            _buildDetailRow("Bio", bio),
-            const Divider(),
-            _buildDetailRow("Phone", "+1 (555) 123-4567"), // Dynamic data example
-            const Divider(),
-            _buildDetailRow("Address", "1234 Elm Street, Springfield, IL"), // Dynamic data example
-            const Divider(),
-            _buildDetailRow("Joined", "January 2025"), // Dynamic data example
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper method to create rows for additional details
-  Widget _buildDetailRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black),
-        ),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-      ],
     );
   }
 }
